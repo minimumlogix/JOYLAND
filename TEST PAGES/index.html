@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Combined Joyland Bot Library</title>
+    
+    <link rel="stylesheet" href="style.css">
+    
+    <script src="app.js" defer></script>
+</head>
+<body data-theme="light">
+    
+    <div id="loader">
+        <canvas id="matrix-canvas"></canvas>
+        <div id="debug-overlay" class="debug-box"></div>
+    </div>
+
+    <main class="container">
+        
+        <header class="header">
+            <div class="stats">
+                <div class="stat">
+                    <div id="bots-count" class="stat-value">0</div>
+                    <div class="stat-label">Total Bots</div>
+                </div>
+            </div>
+            <button id="theme-toggle" title="Toggle Theme">🌙</button>
+        </header>
+
+        <section class="hero-carousel">
+            <h2>Most Liked Bots</h2>
+            <div class="carousel-wrapper">
+                <button id="carousel-prev" class="carousel-arrow" title="Previous">&lt;</button>
+                <div id="hero-carousel-container" class="carousel-container">
+                    </div>
+                <button id="carousel-next" class="carousel-arrow" title="Next">&gt;</button>
+            </div>
+        </section>
+
+        <div class="controls">
+            <select id="sort-select">
+                <option value="name">Sort: Name (A-Z)</option>
+                <option value="chats">Sort: Chats (High-Low)</option>
+                <option value="likes">Sort: Likes (High-Low)</option>
+            </select>
+            <select id="user-filter">
+                <option value="all">Filter: All Users</option>
+                <option value="lMjZp">Filter: lMjZp</option>
+                <option value="rd2be">Filter: rd2be</option>
+                <option value="2xYazJ">Filter: 2xYazJ</option>
+            </select>
+        </div>
+        
+        <div id="filter-reset-container"></div>
+        
+        <h2>Combined Bot Library</h2>
+        <input type="text" id="search" placeholder="Search by name, intro, or tags...">
+        <div id="bots-grid" class="cards-grid"></div>
+
+    </main> <div id="debug-log"></div>
+
+</body>
+</html>
