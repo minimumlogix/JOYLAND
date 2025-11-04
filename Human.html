@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Combined Joyland Bot Library</title>
+    <style>
+        :root {
+            --bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --card-border: rgba(0, 0, 0, 0.1);
+            --text: #333;
+            --accent: #6c5ce7;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --border-radius: 20px;
+            --search-bg: #ffffff;
+            --search-border: rgba(0, 0, 0, 0.1);
+        }
+        [data-theme="dark"] {
+            --bg: #121212;
+            --card-bg: #1e1e1e;
+            --card-border: rgba(255, 255, 255, 0.1);
+            --text: #e0e0e0;
+            --accent: #a855f7;
+            --shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+            --search-bg: #1e1e1e;
+            --search-border: rgba(255, 255, 255, 0.1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            line-height: 1.6; 
+            transition: background 0.3s, color 0.3s;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 2rem; 
+            display: none; 
+            container-type: inline-size;
+        }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        #theme-toggle { background: none; border: 1px solid var(--card-border); color: var(--text); padding: 0.5rem; border-radius: 50%; cursor: pointer; font-size: 1.2rem; transition: all 0.3s; }
+        #theme-toggle:hover { background: var(--card-bg); }
+        .stats { display: flex; gap: 2rem; margin-bottom: 2rem; }
+        .stat { text-align: center; }
+        .stat-value { font-size: 2rem; font-weight: bold; color: var(--accent); }
+        .stat-label { font-size: 0.9rem; opacity: 0.7; }
+        .controls { display: flex; gap: 1rem; margin-bottom: 1rem; }
+        select { padding: 0.5rem; border: 1px solid var(--card-border); border-radius: var(--border-radius); background: var(--card-bg); color: var(--text); }
+        h2 { margin-bottom: 1rem; color: var(--text); }
+        
+        /* --- NEW: Hero Carousel Styles --- */
+        .hero-carousel {
+            width: 100%;
+            margin-bottom: 2.5rem;
+        }
+        .hero-carousel h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        .carousel-wrapper {
+            position: relative;
+        }
+        .carousel-container {
+            display: flex;
+            gap: 1.5rem; /* 24px */
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            scroll-snap-type: x mandatory;
+            padding-bottom: 1rem; /* Space for scrollbar if visible */
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        .carousel-container::-webkit-scrollbar {
+            display: none; /* Hide scrollbar for Chrome, Safari */
+        }
+        .hero-card {
+            flex: 0 0 80vw; /* On mobile, 80% of viewport width */
+            height: 300px;
+            position: relative;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            scroll-snap-align: start;
+            transition: transform 0.2s;
+        }
+        .hero-card:hover {
+            transform: scale(1.02);
+        }
+        @media (min-width: 768px) {
+            .hero-card {
+                flex-basis: 450px; /* Fixed width on desktop */
+            }
+        }
+        .hero-card-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        .hero-card-fade {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 70%;
+            background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+            z-index: 2;
+        }
+        .hero-card-content {
+            position: absolute;
+            bottom: 1.5rem;
+            left: 1.5rem;
+            right: 1.5rem;
+            color: white;
+            z-index: 3;
+        }
+        .hero-card-content h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: white; /* Ensure h3 color is white */
+            margin-bottom: 0.25rem;
+        }
+        .hero-card-content p {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            /* Clamp text to 2 lines */
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;  
+            overflow: hidden;
+        }
+        .carousel-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid var(--card-border);
+            color: #333;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .carousel-arrow:hover {
+            background: #fff;
+            transform: translateY(-50%) scale(1.05);
+        }
+        #carousel-prev {
+            left: 1rem;
+        }
+        #carousel-next {
+            right: 1rem;
+        }
+        [data-theme="dark"] .carousel-arrow {
+            background: rgba(30, 30, 30, 0.9);
+            color: #e0e0e0;
+        }
+        [data-theme="dark"] .carousel-arrow:hover {
+            background: #333;
+        }
+        @media (max-width: 768px) {
+            .carousel-arrow {
+                display: none; /* Hide arrows on mobile, user will swipe */
+            }
+        }
+        /* --- End Hero Carousel Styles --- */
+        
+        #search { 
+            width: 100%; 
+            padding: 0.75rem; 
+            margin-bottom: 1rem; 
+            border: 1px solid var(--search-border); 
+            border-radius: var(--border-radius); 
+            font-size: 1rem; 
+            background: var(--search-bg);
+            color: var(--text);
+        }
+        #search:focus { outline: none; border-color: var(--accent); }
+        .cards-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
+            gap: 1.5rem; 
+        }
+        .card { 
+            display: flex;
+            flex-direction: column;
+            background: var(--card-bg); 
+            border-radius: var(--border-radius); 
+            box-shadow: var(--shadow); 
+            transition: transform 0.2s, box-shadow 0.2s; 
+            border: 1px solid var(--card-border);
+            position: relative;
+            overflow: hidden;
+        }
+        .card:hover { 
+            transform: translateY(-4px); 
+            box-shadow: 0 8px 20px rgba(31, 38, 135, 0.2); 
+        }
+        [data-theme="dark"] .card:hover {
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+        .card img { 
+            width: 100%; 
+            height: 200px; 
+            object-fit: cover; 
+            border-radius: var(--border-radius) var(--border-radius) 0 0; 
+        }
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            gap: 0.75rem;
+            flex-grow: 1; /* Ensures content fills space */
+        }
+        .profile-tag {
+            align-self: flex-start;
+            background: #28a745; 
+            color: white; 
+            padding: 0.25rem 0.5rem; 
+            border-radius: 20px; 
+            font-size: 0.8rem; 
+        }
+        .card h3 { 
+            margin-bottom: 0; 
+            color: var(--text); 
+        }
+        .card p { 
+            margin-bottom: 0; 
+            font-size: 0.95rem; 
+            opacity: 0.8; 
+            flex-grow: 1; /* Pushes tags/stats down */
+        }
+        .tags { 
+            display: flex; 
+            flex-wrap: wrap;
+            gap: 0.5rem; 
+            margin-bottom: 0; 
+            align-items: center;
+        }
+        .tag { 
+            background: var(--accent); 
+            color: white; 
+            padding: 0.25rem 0.5rem; 
+            border-radius: 20px; 
+            font-size: 0.8rem; 
+        }
+        .card-stats { 
+            font-size: 0.9rem; 
+            opacity: 0.7; 
+            margin-top: 0.5rem; /* Add some space above stats */
+        }
+        .chat-button { 
+            position: absolute;
+            top: 172px; 
+            right: 1.5rem;
+            width: 56px;
+            height: 56px;
+            background: var(--accent); 
+            color: white; 
+            border-radius: 50%;
+            text-decoration: none; 
+            font-weight: bold; 
+            transition: all 0.2s ease-in-out; 
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--card-bg);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .chat-button:hover { 
+            background: #5a4fcf;
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+        }
+        @container (max-width: 400px) {
+            .tags { flex-direction: column; align-items: flex-start; }
+        }
+        #debug-log { 
+            display: none; 
+            margin-top: 2rem; 
+            padding: 1rem; 
+            background: #e9ecef; 
+            border-radius: var(--border-radius); 
+            font-family: monospace; 
+            white-space: pre-wrap; 
+            font-size: 0.8rem; 
+        }
+        #loader { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: black; 
+            z-index: 999; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+        }
+        #matrix-canvas { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+        }
+        .debug-box { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            background: rgba(0,0,0,0.7); 
+            color: lime; 
+            padding: 1rem; 
+            border-radius: var(--border-radius); 
+            font-family: monospace; 
+            white-space: pre-wrap; 
+            font-size: 0.9rem; 
+            max-height: 80%; 
+            overflow-y: auto; 
+            max-width: 40%; 
+        }
+        @media (max-width: 768px) { 
+            .cards-grid { grid-template-columns: 1fr; } 
+            .stats { flex-direction: column; gap: 1rem; } 
+            .controls { flex-direction: column; } 
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <div id="loader">
+        <canvas id="matrix-canvas"></canvas>
+        <div id="debug-overlay" class="debug-box"></div>
+    </div>
+    <div class="container">
+        <div class="header">
+            <div class="stats">
+                <div class="stat">
+                    <div id="bots-count" class="stat-value">0</div>
+                    <div class="stat-label">Total Bots</div>
+                </div>
+            </div>
+            <button id="theme-toggle" title="Toggle Theme">🌙</button>
+        </div>
+
+        <!-- NEW: Hero Carousel HTML -->
+        <section class="hero-carousel">
+            <h2>Most Liked Bots</h2>
+            <div class="carousel-wrapper">
+                <button id="carousel-prev" class="carousel-arrow" title="Previous">&lt;</button>
+                <div id="hero-carousel-container" class="carousel-container">
+                    <!-- Cards will be injected by JS here -->
+                </div>
+                <button id="carousel-next" class="carousel-arrow" title="Next">&gt;</button>
+            </div>
+        </section>
+        <!-- End Hero Carousel HTML -->
+
+        <div class="controls">
+            <select id="sort-select">
+                <option value="name">Sort: Name (A-Z)</option>
+                <option value="chats">Sort: Chats (High-Low)</option>
+                <option value="likes">Sort: Likes (High-Low)</option>
+            </select>
+            <select id="user-filter">
+                <option value="all">Filter: All Users</option>
+                <option value="lMjZp">Filter: lMjZp</option>
+                <option value="rd2be">Filter: rd2be</option>
+                <option value="2xYazJ">Filter: 2xYazJ</option>
+            </select>
+        </div>
+        <!-- Moved H2 down -->
+        <h2>Combined Bot Library</h2>
+        <input type="text" id="search" placeholder="Search by name, intro, or tags...">
+        <div id="bots-grid" class="cards-grid"></div>
+    </div>
+    <div id="debug-log"></div>
+
+    <script>
+        const userIds = ['lMjZp', 'rd2be', '2xYazJ'];
+        const debugLog = document.getElementById('debug-log');
+        const debugOverlay = document.getElementById('debug-overlay');
+        let allBots = [];
+        let searchTerm = '';
+        let autoScrollInterval; // For hero carousel
+
+        // Theme toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        themeToggle.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+        themeToggle.addEventListener('click', () => {
+            const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+        });
+
+        function log(message) {
+            console.log(message);
+            const msg = `${new Date().toLocaleTimeString()}: ${message}\n`;
+            debugLog.textContent += msg;
+            if (debugOverlay) {
+                debugOverlay.textContent += msg;
+                debugOverlay.scrollTop = debugOverlay.scrollHeight;
+            }
+        }
+
+        // Matrix rain
+        function initMatrix() {
+            const canvas = document.getElementById('matrix-canvas');
+            if (!canvas) return; // Guard against missing canvas
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()';
+            const fontSize = 14;
+            const columns = canvas.width / fontSize;
+            const drops = Array(Math.floor(columns)).fill(1);
+            let matrixInterval = setInterval(draw, 50);
+
+            function draw() {
+                ctx.fillStyle = 'rgba(0,0,0,0.05)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#0f0';
+                ctx.font = `${fontSize}px monospace`;
+                drops.forEach((y, i) => {
+                    const text = chars[Math.floor(Math.random() * chars.length)];
+                    ctx.fillText(text, i * fontSize, y * fontSize);
+                    if (y * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                    drops[i]++;
+                });
+            }
+            
+            canvas.dataset.intervalId = matrixInterval;
+        }
+
+        function stopMatrix() {
+            const canvas = document.getElementById('matrix-canvas');
+            if (canvas) {
+                const intervalId = canvas.dataset.intervalId;
+                if (intervalId) {
+                    clearInterval(intervalId);
+                }
+            }
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.style.transition = 'opacity 0.5s ease-out';
+                loader.style.opacity = '0';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 500);
+            }
+        }
+
+
+        function generateFingerprint() {
+            return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        }
+
+        async function fetchData(url) {
+            const options = {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json, text/plain, */*',
+                    'Accept-Language': 'en',
+                    'DNT': '1',
+                    'Fingerprint': generateFingerprint(),
+                    'Origin': 'https://www.joyland.ai',
+                    'Referer': 'https://www.joyland.ai/'
+                }
+            };
+            try {
+                log(`Fetching: ${url}`);
+                const response = await fetch(url, options);
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const data = await response.json();
+                if (data && data.result && data.result.records) {
+                     log(`Got data: ${data.result.records.length} records, page ${data.result.page}/${data.result.pages}`);
+                } else {
+                     log(`Got data: ${JSON.stringify(data).substring(0, 200)}...`);
+                }
+                return data;
+            } catch (error) {
+                log(`Fetch error for ${url}: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function loadBotsForUser(userId) {
+            log(`Loading bots for user ${userId}...`);
+            let records = [];
+            let page = 1;
+            let totalPages = 1;
+            do {
+                const botsData = await fetchData(`https://api.joyland.ai/profile/public-bots?userId=${userId}&page=${page}&pageSize=100`);
+                if (botsData && botsData.result) {
+                    const { records: newRecords, pages } = botsData.result;
+                    records = records.concat(newRecords.map(bot => ({ ...bot, fromUser: userId })));
+                    totalPages = pages;
+                    page++;
+                } else {
+                    log(`No bot data for ${userId}`);
+                    break;
+                }
+            } while (page <= totalPages);
+            log(`Loaded ${records.length} bots for ${userId}`);
+            return records;
+        }
+
+        async function loadAllBots() {
+            log('Matrix loading: Initiating bot fetch...');
+            const botPromises = userIds.map(userId => loadBotsForUser(userId));
+            const userBotsArrays = await Promise.all(botPromises);
+            allBots = userBotsArrays.flat();
+            
+            allBots.sort((a, b) => a.characterName.localeCompare(b.characterName));
+            document.getElementById('bots-count').textContent = allBots.length;
+            log(`Matrix complete: Total ${allBots.length} bots loaded.`);
+            
+            stopMatrix();
+            
+            document.querySelector('.container').style.display = 'block';
+            
+            populateHeroCarousel(); // NEW: Populate hero
+            updateDisplay(); // Populate main grid
+        }
+
+        function parseChats(str) {
+            if (typeof str !== 'string') return 0;
+            const num = parseFloat(str.replace('k', ''));
+            return str.includes('k') ? num * 1000 : num;
+        }
+
+        function sortBots(bots, sortBy) {
+            return [...bots].sort((a, b) => {
+                switch (sortBy) {
+                    case 'name': return a.characterName.localeCompare(b.characterName);
+                    case 'chats': return parseChats(b.botChats) - parseChats(a.botChats);
+                    case 'likes': return (b.botLikesInInt || 0) - (a.botLikesInInt || 0);
+                    default: return 0;
+                }
+            });
+        }
+
+        function filterBots(bots, userFilter) {
+            if (userFilter === 'all') return bots;
+            return bots.filter(bot => bot.fromUser === userFilter);
+        }
+
+        function updateDisplay() {
+            const sortBy = document.getElementById('sort-select').value;
+            const userFilter = document.getElementById('user-filter').value;
+            let filtered = filterBots(allBots, userFilter);
+            if (searchTerm) {
+                filtered = filtered.filter(bot =>
+                    bot.characterName.toLowerCase().includes(searchTerm) ||
+                    bot.introduce.toLowerCase().includes(searchTerm) ||
+                    (bot.tags && bot.tags.some(tag => tag.toLowerCase().includes(searchTerm)))
+                );
+            }
+            const sorted = sortBots(filtered, sortBy);
+            renderCards(sorted);
+        }
+
+        // NEW: Function to populate the hero carousel
+        function populateHeroCarousel() {
+            const mostLiked = sortBots(allBots, 'likes').slice(0, 10);
+            const track = document.getElementById('hero-carousel-container');
+            if (!track) return;
+
+            track.innerHTML = mostLiked.map(bot => `
+                <a href="https://www.joyland.ai/botProfile/${bot.botId}" class="hero-card" target="_blank" rel="noopener noreferrer">
+                    <img src="${bot.avatar || 'https://placehold.co/450x300/a855f7/white?text=No+Image'}" alt="${bot.characterName}" class="hero-card-image" onerror="this.src='https://placehold.co/450x300/a855f7/white?text=Error'">
+                    <div class="hero-card-fade"></div>
+                    <div class="hero-card-content">
+                        <h3>${bot.characterName || 'Unknown Bot'}</h3>
+                        <p>${bot.introduce || 'No introduction available.'}</p>
+                    </div>
+                </a>
+            `).join('');
+            
+            initCarouselControls(); // After populating, init controls
+        }
+
+        // NEW: Function to initialize carousel controls
+        function initCarouselControls() {
+            const container = document.getElementById('hero-carousel-container');
+            const prevBtn = document.getElementById('carousel-prev');
+            const nextBtn = document.getElementById('carousel-next');
+
+            if (!container || !prevBtn || !nextBtn) return;
+
+            const scrollAmount = () => {
+                // Scroll by 80% of the container's visible width
+                return container.clientWidth * 0.8;
+            }
+
+            prevBtn.addEventListener('click', () => {
+                container.scrollBy({ left: -scrollAmount(), behavior: 'smooth' });
+            });
+
+            nextBtn.addEventListener('click', () => {
+                container.scrollBy({ left: scrollAmount(), behavior: 'smooth' });
+            });
+
+            const startAutoScroll = () => {
+                stopAutoScroll(); // Clear any existing interval
+                autoScrollInterval = setInterval(() => {
+                    if (!container) return;
+                    // Check if scrolled to the end (with a 50px tolerance)
+                    if (container.scrollLeft + container.clientWidth + 50 >= container.scrollWidth) {
+                        // If at end, loop back to start
+                        container.scrollTo({ left: 0, behavior: 'smooth' });
+                    } else {
+                        // Otherwise, scroll by the defined amount
+                        container.scrollBy({ left: scrollAmount(), behavior: 'smooth' });
+                    }
+                }, 3000); // Scroll every 3 seconds
+            };
+
+            const stopAutoScroll = () => {
+                clearInterval(autoScrollInterval);
+            };
+
+            container.addEventListener('mouseenter', stopAutoScroll);
+            container.addEventListener('mouseleave', startAutoScroll);
+            
+            startAutoScroll(); // Start on load
+        }
+
+
+        function renderCards(bots) {
+            const grid = document.getElementById('bots-grid');
+            if (!grid) return;
+            grid.innerHTML = bots.map(bot => {
+                const tags = Array.isArray(bot.tags) ? bot.tags : [];
+                
+                return `
+                <div class="card">
+                    <img src="${bot.avatar || 'https://placehold.co/300x200/6c5ce7/white?text=No+Image'}" alt="${bot.characterName}" loading="lazy" onerror="this.src='https://placehold.co/300x200/6c5ce7/white?text=Error'">
+                    
+                    <a href="https://www.joyland.ai/botProfile/${bot.botId}" class="chat-button" title="Chat with ${bot.characterName}" target="_blank" rel="noopener noreferrer">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12 5 19 12 12 19"></polyline>
+                        </svg>
+                    </a>
+
+                    <div class="card-content">
+                        <span class="profile-tag">From ${bot.fromUser}</span>
+                        <h3>${bot.characterName || 'Unknown Bot'}</h3>
+                        <p>${bot.introduce || 'No introduction available.'}</p>
+                        <div class="tags">
+                            ${tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                        </div>
+                        <div class="card-stats">Chats: ${bot.botChats || 0} | Likes: ${bot.botLikes || 0}</div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initMatrix();
+            const searchInput = document.getElementById('search');
+            
+            let searchTimeout;
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        searchTerm = e.target.value.toLowerCase();
+                        updateDisplay();
+                    }, 300);
+                });
+            }
+
+            const sortSelect = document.getElementById('sort-select');
+            if (sortSelect) sortSelect.addEventListener('change', updateDisplay);
+
+            const userFilter = document.getElementById('user-filter');
+            if (userFilter) userFilter.addEventListener('change', updateDisplay);
+            
+            loadAllBots();
+        });
+    </script>
+</body>
+</html>
+
