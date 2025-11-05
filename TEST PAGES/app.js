@@ -88,8 +88,6 @@ async function fetchData(url) {
             'Accept-Language': 'en',
             'DNT': '1',
             'Fingerprint': generateFingerprint()
-            // --- CHANGE ---
-            // Removed forbidden 'Origin' and 'Referer' headers
         }
     };
     try {
@@ -135,7 +133,6 @@ async function loadAllBots() {
     const botPromises = userIds.map(userId => loadBotsForUser(userId));
     const userBotsArrays = await Promise.all(botPromises);
     
-    // --- CHANGE ---
     // Explicitly filter out any 'null' results from failed fetches
     allBots = userBotsArrays.filter(Boolean).flat();
     
@@ -145,8 +142,7 @@ async function loadAllBots() {
     
     stopMatrix();
     
-    // --- CHANGE ---
-    // Add check for zero bots loaded, which indicates an API error
+    // check for zero bots loaded, which indicates an API error
     if (allBots.length === 0) {
         log('CRITICAL: No bots were loaded from any user.');
         const container = document.querySelector('.container');
@@ -155,7 +151,6 @@ async function loadAllBots() {
         container.style.display = 'block';
         return; // Don't try to populate carousel/grid
     }
-    // --- END CHANGE ---
     
     document.querySelector('.container').style.display = 'block';
     
@@ -303,7 +298,6 @@ function renderCards(bots) {
     const grid = document.getElementById('bots-grid');
     if (!grid) return;
 
-    // --- CHANGE ---
     // Handle empty results
     if (bots.length === 0) {
         let message = 'No bots found.';
@@ -316,12 +310,10 @@ function renderCards(bots) {
         grid.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; opacity: 0.8;">${message}</p>`;
         return; // Stop here
     }
-    // --- END CHANGE ---
 
     grid.innerHTML = bots.map(bot => {
         const tags = Array.isArray(bot.tags) ? bot.tags : [];
         
-        // --- TEMPLATE CHANGE ---
         // The HTML structure inside card-content is updated
         return `
         <div class="card">
@@ -386,3 +378,4 @@ document.addEventListener('DOMContentLoaded', () => {
     
     loadAllBots();
 });
+
