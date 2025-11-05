@@ -1,4 +1,3 @@
-// This code should be in a file named app.js
 const userIds = ['lMjZp', 'rd2be', '2xYazJ'];
 const debugLog = document.getElementById('debug-log');
 const debugOverlay = document.getElementById('debug-overlay');
@@ -322,6 +321,8 @@ function renderCards(bots) {
     grid.innerHTML = bots.map(bot => {
         const tags = Array.isArray(bot.tags) ? bot.tags : [];
         
+        // --- TEMPLATE CHANGE ---
+        // The HTML structure inside card-content is updated
         return `
         <div class="card">
             <img src="${bot.avatar || 'https://placehold.co/300x200/6c5ce7/white?text=No+Image'}" alt="${bot.characterName}" loading="lazy" onerror="this.src='https://placehold.co/300x200/6c5ce7/white?text=Error'">
@@ -335,13 +336,15 @@ function renderCards(bots) {
             </a>
 
             <div class="card-content">
-                <span class="profile-tag">From ${bot.fromUser}</span>
                 <h3>${bot.characterName || 'Unknown Bot'}</h3>
                 <p>${bot.introduce || 'No introduction available.'}</p>
                 <div class="tags">
                     ${tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
                 </div>
-                <div class="card-stats">Chats: ${bot.botChats || 0} | Likes: ${bot.botLikes || 0}</div>
+                <div class="card-footer">
+                    <span class="profile-tag">From ${bot.fromUser}</span>
+                    <span class="card-stats">Chats: ${bot.botChats || 0} | Likes: ${bot.botLikes || 0}</span>
+                </div>
             </div>
         </div>
     `}).join('');
@@ -374,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const botsGrid = document.getElementById('bots-grid');
     if (botsGrid) {
         botsGrid.addEventListener('click', (e) => {
-            if (e.target.classList.contains('tag')) {
+            if (e.target.classList.contents.contains('tag')) {
                 const tag = e.target.textContent;
                 setTagFilter(tag);
             }
