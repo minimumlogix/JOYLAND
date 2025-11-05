@@ -243,13 +243,17 @@ h2 { margin-bottom: 1rem; color: var(--text); }
     gap: 0.75rem;
     flex-grow: 1;
 }
+
+/* --- STYLE CHANGE --- */
 .profile-tag {
-    align-self: flex-start;
-    background: #28a745; 
-    color: white; 
+    /* align-self: flex-start; */ /* <-- REMOVED */
+    background: var(--bg); /* <-- CHANGED from green to variable */
+    color: var(--text); /* <-- ADDED */
+    border: 1px solid var(--card-border); /* <-- ADDED */
     padding: 0.25rem 0.5rem; 
     border-radius: 20px; 
     font-size: 0.8rem; 
+    font-weight: 500; /* <-- ADDED for polish */
 }
 .card h3 { 
     margin-bottom: 0; 
@@ -286,8 +290,17 @@ h2 { margin-bottom: 1rem; color: var(--text); }
 .card-stats { 
     font-size: 0.9rem; 
     opacity: 0.7; 
-    margin-top: 0.5rem;
+    /* margin-top: 0.5rem; */ /* <-- REMOVED, moved to footer */
 }
+
+/* --- NEW STYLE --- */
+.card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem; /* Adds space from tags above */
+}
+
 .chat-button { 
     position: absolute;
     top: 172px; 
@@ -312,9 +325,10 @@ h2 { margin-bottom: 1rem; color: var(--text); }
     transform: scale(1.05);
     box-shadow: 0 6px 16px rgba(0,0,0,0.3);
 }
-@container (max-width: 400px) {
-    .tags { flex-direction: column; align-items: flex-start; }
-}
+
+/* --- BUG FIX --- */
+/* Removed the @container query that was here, as 'flex-wrap: wrap' on .tags already handles this perfectly. */
+
 #debug-log { 
     display: none; 
     margin-top: 2rem; 
