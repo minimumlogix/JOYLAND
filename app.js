@@ -6,13 +6,13 @@ let searchTerm = '';
 let activeTag = ''; // State for tag filtering
 let autoScrollInterval;
 
-// --- NEW VARIABLES FOR LAZY LOADING ---
+// --- VARIABLES FOR LAZY LOADING ---
 let currentBatch = [];      // Stores the full list of filtered bots
 let displayedCount = 0;     // How many are currently on screen
 const BATCH_SIZE = 20;      // How many to load at a time
 let observer;               // The IntersectionObserver instance
 
-// Theme toggle
+// --- THEME TOGGLE ---
 const themeToggle = document.getElementById('theme-toggle');
 const currentTheme = localStorage.getItem('theme') || 'light';
 document.documentElement.setAttribute('data-theme', currentTheme);
@@ -34,7 +34,7 @@ function log(message) {
     }
 }
 
-// Matrix rain
+// --- MATRIX RAIN ---
 function initMatrix() {
     const canvas = document.getElementById('matrix-canvas');
     if (!canvas) return;
