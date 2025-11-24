@@ -6,6 +6,12 @@ let searchTerm = '';
 let activeTag = ''; // State for tag filtering
 let autoScrollInterval;
 
+// --- NEW VARIABLES FOR LAZY LOADING ---
+let currentBatch = [];      // Stores the full list of filtered bots
+let displayedCount = 0;     // How many are currently on screen
+const BATCH_SIZE = 20;      // How many to load at a time
+let observer;               // The IntersectionObserver instance
+
 // Theme toggle
 const themeToggle = document.getElementById('theme-toggle');
 const currentTheme = localStorage.getItem('theme') || 'light';
@@ -298,30 +304,73 @@ function renderCards(bots) {
     const grid = document.getElementById('bots-grid');
     if (!grid) return;
 
-    // Handle empty results
+    // 1. Reset everything
+    grid.innerHTML = ''; 
+    currentBatch = bots;
+    displayedCount = 0;
+
+    // 2. Handle empty results
     if (bots.length === 0) {
         let message = 'No bots found.';
-        if (activeTag) {
-            message = `No bots found with the tag "${activeTag}".`;
-        } else if (searchTerm) {
-            message = 'No bots match your search criteria.';
-        }
-        // Display a helpful message instead of a blank grid
+        if (activeTag) message = `No bots found with the tag "${activeTag}".`;
+        else if (searchTerm) message = 'No bots match your search criteria.';
+        
         grid.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; opacity: 0.8;">${message}</p>`;
-        return; // Stop here
+        return;
     }
 
-    grid.innerHTML = bots.map(bot => {
+    // 3. Create the "Sentinel" (The invisible trigger at the bottom)
+    const sentinel = document.createElement('div');
+    sentinel.id = 'sentinel';
+    grid.appendChild(sentinel);
+
+    // 4. Initialize Observer if not exists
+    if (!observer) {
+        observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                loadMoreBots();
+            }
+        }, { rootMargin: '200px' }); // Load 200px before user hits bottom
+    }
+
+    // 5. Start observing the sentinel
+    observer.observe(sentinel);
+
+    // 6. Load the first batch immediately
+    loadMoreBots();
+}
+
+// --- NEW FUNCTION TO APPEND BATCHES ---
+function loadMoreBots() {
+    // If we've displayed everything, stop.
+    if (displayedCount >= currentBatch.length) return;
+
+    const grid = document.getElementById('bots-grid');
+    const sentinel = document.getElementById('sentinel');
+    
+    // Get the next slice of bots
+    const nextBatch = currentBatch.slice(displayedCount, displayedCount + BATCH_SIZE);
+    
+    // Create HTML for this batch
+    const batchHTML = nextBatch.map(bot => {
         const tags = Array.isArray(bot.tags) ? bot.tags : [];
-        
-        // The HTML structure inside card-content is updated
+        const botImage = bot.avatar || 'https://placehold.co/300x200/6c5ce7/white?text=No+Image';
+
         return `
         <div class="card">
-            <img src="${bot.avatar || 'https://placehold.co/300x200/6c5ce7/white?text=No+Image'}" alt="${bot.characterName}" loading="lazy" onerror="this.src='https://placehold.co/300x200/6c5ce7/white?text=Error'">
+            <div class="image-placeholder skeleton">
+                <img 
+                    src="${botImage}" 
+                    alt="${bot.characterName}" 
+                    class="img-loading"
+                    loading="lazy" 
+                    onload="this.classList.remove('img-loading'); this.classList.add('img-loaded'); this.parentElement.classList.remove('skeleton');"
+                    onerror="this.src='https://placehold.co/300x200/6c5ce7/white?text=Error'; this.parentElement.classList.remove('skeleton'); this.classList.remove('img-loading'); this.classList.add('img-loaded');"
+                >
+            </div>
             
             <a href="https://www.joyland.ai/botProfile/${bot.botId}" class="chat-button" title="Chat with ${bot.characterName}" target="_blank" rel="noopener noreferrer">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <title>Chat</title>
                     <line x1="5" y1="12" x2="19" y2="12"></line>
                     <polyline points="12 5 19 12 12 19"></polyline>
                 </svg>
@@ -339,7 +388,24 @@ function renderCards(bots) {
                 </div>
             </div>
         </div>
-    `}).join('');
+    `;
+    }).join('');
+
+    // Insert new cards BEFORE the sentinel
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = batchHTML;
+    
+    // Move children from tempDiv to grid before the sentinel
+    while (tempDiv.firstChild) {
+        grid.insertBefore(tempDiv.firstChild, sentinel);
+    }
+
+    displayedCount += nextBatch.length;
+
+    // If we reached the end, unobserve
+    if (displayedCount >= currentBatch.length) {
+        observer.unobserve(sentinel);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
