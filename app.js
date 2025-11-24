@@ -3,14 +3,14 @@ const debugLog = document.getElementById('debug-log');
 const debugOverlay = document.getElementById('debug-overlay');
 let allBots = [];
 let searchTerm = '';
-let activeTag = ''; // State for tag filtering
 let autoScrollInterval;
 
-// --- VARIABLES FOR LAZY LOADING ---
-let currentBatch = [];      // Stores the full list of filtered bots
-let displayedCount = 0;     // How many are currently on screen
-const BATCH_SIZE = 20;      // How many to load at a time
-let observer;               // The IntersectionObserver instance
+// --- STATE FOR FILTERING & LAZY LOADING ---
+let activeTags = new Set(); // Stores multiple unique tags
+let currentBatch = [];      // Stores the full filtered list
+let displayedCount = 0;     // How many currently on screen
+const BATCH_SIZE = 20;      // How many to load per scroll
+let observer;               // IntersectionObserver instance
 
 // --- THEME TOGGLE ---
 const themeToggle = document.getElementById('theme-toggle');
@@ -24,17 +24,28 @@ themeToggle.addEventListener('click', () => {
     themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
 });
 
+// --- UTILITIES ---
 function log(message) {
     console.log(message);
     const msg = `${new Date().toLocaleTimeString()}: ${message}\n`;
-    debugLog.textContent += msg;
+    if (debugLog) debugLog.textContent += msg;
     if (debugOverlay) {
         debugOverlay.textContent += msg;
         debugOverlay.scrollTop = debugOverlay.scrollHeight;
     }
 }
 
-// --- MATRIX RAIN ---
+function parseChats(str) {
+    if (typeof str !== 'string') return 0;
+    const num = parseFloat(str.replace('k', ''));
+    return str.includes('k') ? num * 1000 : num;
+}
+
+function generateFingerprint() {
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+// --- MATRIX RAIN ANIMATION ---
 function initMatrix() {
     const canvas = document.getElementById('matrix-canvas');
     if (!canvas) return;
@@ -59,7 +70,6 @@ function initMatrix() {
             drops[i]++;
         });
     }
-    
     canvas.dataset.intervalId = matrixInterval;
 }
 
@@ -67,31 +77,23 @@ function stopMatrix() {
     const canvas = document.getElementById('matrix-canvas');
     if (canvas) {
         const intervalId = canvas.dataset.intervalId;
-        if (intervalId) {
-            clearInterval(intervalId);
-        }
+        if (intervalId) clearInterval(intervalId);
     }
     const loader = document.getElementById('loader');
     if (loader) {
         loader.style.transition = 'opacity 0.5s ease-out';
         loader.style.opacity = '0';
-        setTimeout(() => {
-            loader.style.display = 'none';
-        }, 500);
+        setTimeout(() => { loader.style.display = 'none'; }, 500);
     }
 }
 
-function generateFingerprint() {
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-}
-
+// --- DATA FETCHING ---
 async function fetchData(url) {
     const options = {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json, text/plain, */*',
-            'Accept-Language': 'en',
             'DNT': '1',
             'Fingerprint': generateFingerprint()
         }
@@ -99,22 +101,16 @@ async function fetchData(url) {
     try {
         log(`Fetching: ${url}`);
         const response = await fetch(url, options);
-        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        if (data && data.result && data.result.records) {
-            log(`Got data: ${data.result.records.length} records, page ${data.result.page}/${data.result.pages}`);
-        } else {
-            log(`Got data: ${JSON.stringify(data).substring(0, 200)}...`);
-        }
         return data;
     } catch (error) {
-        log(`Fetch error for ${url}: ${error.message}`);
+        log(`Fetch error: ${error.message}`);
         return null;
     }
 }
 
 async function loadBotsForUser(userId) {
-    log(`Loading bots for user ${userId}...`);
     let records = [];
     let page = 1;
     let totalPages = 1;
@@ -126,49 +122,38 @@ async function loadBotsForUser(userId) {
             totalPages = pages;
             page++;
         } else {
-            log(`No bot data for ${userId}`);
             break;
         }
     } while (page <= totalPages);
-    log(`Loaded ${records.length} bots for ${userId}`);
     return records;
 }
 
 async function loadAllBots() {
-    log('Matrix loading: Initiating bot fetch...');
+    log('Initiating bot fetch...');
     const botPromises = userIds.map(userId => loadBotsForUser(userId));
     const userBotsArrays = await Promise.all(botPromises);
     
-    // Explicitly filter out any 'null' results from failed fetches
     allBots = userBotsArrays.filter(Boolean).flat();
-    
     allBots.sort((a, b) => a.characterName.localeCompare(b.characterName));
+    
     document.getElementById('bots-count').textContent = allBots.length;
-    log(`Matrix complete: Total ${allBots.length} bots loaded.`);
+    log(`Total ${allBots.length} bots loaded.`);
     
     stopMatrix();
     
-    // check for zero bots loaded, which indicates an API error
     if (allBots.length === 0) {
-        log('CRITICAL: No bots were loaded from any user.');
         const container = document.querySelector('.container');
-        // Prepend an error message so user knows what happened
-        container.innerHTML = `<h2 style="text-align: center; color: var(--accent);">Could not load bot data. Please try refreshing the page.</h2>` + container.innerHTML;
+        container.innerHTML = `<h2 style="text-align: center; color: var(--accent);">Could not load bot data. Refresh page.</h2>` + container.innerHTML;
         container.style.display = 'block';
-        return; // Don't try to populate carousel/grid
+        return;
     }
     
     document.querySelector('.container').style.display = 'block';
-    
     populateHeroCarousel();
-    updateDisplay(); // Initial render
+    updateDisplay();
 }
 
-function parseChats(str) {
-    if (typeof str !== 'string') return 0;
-    const num = parseFloat(str.replace('k', ''));
-    return str.includes('k') ? num * 1000 : num;
-}
+// --- FILTERING & SORTING ---
 
 function sortBots(bots, sortBy) {
     return [...bots].sort((a, b) => {
@@ -186,55 +171,64 @@ function filterBots(bots, userFilter) {
     return bots.filter(bot => bot.fromUser === userFilter);
 }
 
-function setTagFilter(tag) {
-    setTagFilterUI(tag);
+// --- TAG MANAGEMENT (NEW) ---
+
+// Make accessible to global scope for onclick events
+window.removeTag = function(tag) {
+    activeTags.delete(tag);
+    renderActiveTagsUI();
+    updateDisplay();
+};
+
+function toggleTag(tag) {
+    if (activeTags.has(tag)) {
+        activeTags.delete(tag);
+    } else {
+        activeTags.add(tag);
+    }
+    renderActiveTagsUI();
+    updateDisplay();
 }
 
-function clearTagFilter() {
-    clearTagFilterUI();
-}
+function renderActiveTagsUI() {
+    const container = document.getElementById('active-tags-container');
+    if (!container) return;
 
-function setTagFilterUI(tag) {
-    activeTag = tag;
-    const searchInput = document.getElementById('search');
-    searchInput.value = `Tag: ${tag}`;
-    searchInput.disabled = true;
-    
-    const resetContainer = document.getElementById('filter-reset-container');
-    resetContainer.innerHTML = `<button id="reset-tag-filter" class="reset-button">← Back to All Bots</button>`;
-    
-    document.getElementById('reset-tag-filter').addEventListener('click', clearTagFilter);
-    
-    updateDisplay(); // Re-render
-}
+    if (activeTags.size === 0) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        return;
+    }
 
-function clearTagFilterUI() {
-    activeTag = '';
-    const searchInput = document.getElementById('search');
-    searchInput.value = '';
-    searchInput.disabled = false;
-    searchTerm = ''; // Clear internal search term
-    
-    const resetContainer = document.getElementById('filter-reset-container');
-    resetContainer.innerHTML = ''; // Remove button
-    
-    updateDisplay(); // Re-render
+    container.style.display = 'flex';
+    container.innerHTML = Array.from(activeTags).map(tag => `
+        <button class="active-tag-chip" onclick="removeTag('${tag}')">
+            ${tag} <span>&times;</span>
+        </button>
+    `).join('');
 }
 
 function updateDisplay() {
     const sortBy = document.getElementById('sort-select').value;
     const userFilter = document.getElementById('user-filter').value;
+
+    // 1. Filter by User
     let filtered = filterBots(allBots, userFilter);
 
-    if (activeTag) {
-        filtered = filtered.filter(bot =>
-            (bot.tags && Array.isArray(bot.tags) && bot.tags.some(t => t.toLowerCase() === activeTag.toLowerCase()))
-        );
-    } else if (searchTerm) {
+    // 2. Strict Tag Filtering (AND Logic)
+    if (activeTags.size > 0) {
+        filtered = filtered.filter(bot => {
+            const botTags = bot.tags || [];
+            // Every selected tag must exist exactly in the bot's tag list
+            return Array.from(activeTags).every(selectedTag => botTags.includes(selectedTag));
+        });
+    }
+
+    // 3. Search Text Filtering
+    if (searchTerm) {
         filtered = filtered.filter(bot =>
             bot.characterName.toLowerCase().includes(searchTerm) ||
-            bot.introduce.toLowerCase().includes(searchTerm) ||
-            (bot.tags && bot.tags.some(tag => tag.toLowerCase().includes(searchTerm)))
+            bot.introduce.toLowerCase().includes(searchTerm)
         );
     }
     
@@ -242,116 +236,53 @@ function updateDisplay() {
     renderCards(sorted);
 }
 
-function populateHeroCarousel() {
-    const mostLiked = sortBots(allBots, 'likes').slice(0, 10);
-    const track = document.getElementById('hero-carousel-container');
-    if (!track) return;
-
-    track.innerHTML = mostLiked.map(bot => `
-        <a href="https://www.joyland.ai/botProfile/${bot.botId}" class="hero-card" target="_blank" rel="noopener noreferrer">
-            <img src="${bot.avatar || 'https://placehold.co/450x300/a855f7/white?text=No+Image'}" alt="${bot.characterName}" class="hero-card-image" onerror="this.src='https://placehold.co/450x300/a855f7/white?text=Error'">
-            <div class="hero-card-fade"></div>
-            <div class="hero-card-content">
-                <h3>${bot.characterName || 'Unknown Bot'}</h3>
-                <p>${bot.introduce || 'No introduction available.'}</p>
-            </div>
-        </a>
-    `).join('');
-    
-    initCarouselControls();
-}
-
-function initCarouselControls() {
-    const container = document.getElementById('hero-carousel-container');
-    const prevBtn = document.getElementById('carousel-prev');
-    const nextBtn = document.getElementById('carousel-next');
-
-    if (!container || !prevBtn || !nextBtn) return;
-
-    const scrollAmount = () => container.clientWidth * 0.8;
-
-    prevBtn.addEventListener('click', () => {
-        container.scrollBy({ left: -scrollAmount(), behavior: 'smooth' });
-    });
-
-    nextBtn.addEventListener('click', () => {
-        container.scrollBy({ left: scrollAmount(), behavior: 'smooth' });
-    });
-
-    const startAutoScroll = () => {
-        stopAutoScroll();
-        autoScrollInterval = setInterval(() => {
-            if (!container) return;
-            if (container.scrollLeft + container.clientWidth + 50 >= container.scrollWidth) {
-                container.scrollTo({ left: 0, behavior: 'smooth' });
-            } else {
-                container.scrollBy({ left: scrollAmount(), behavior: 'smooth' });
-            }
-        }, 3000);
-    };
-
-    const stopAutoScroll = () => {
-        clearInterval(autoScrollInterval);
-    };
-
-    container.addEventListener('mouseenter', stopAutoScroll);
-    container.addEventListener('mouseleave', startAutoScroll);
-    
-    startAutoScroll();
-}
+// --- LAZY LOADING & RENDERING (NEW) ---
 
 function renderCards(bots) {
     const grid = document.getElementById('bots-grid');
     if (!grid) return;
 
-    // 1. Reset everything
+    // Reset Lazy Load State
     grid.innerHTML = ''; 
     currentBatch = bots;
     displayedCount = 0;
 
-    // 2. Handle empty results
+    // Handle empty state
     if (bots.length === 0) {
         let message = 'No bots found.';
-        if (activeTag) message = `No bots found with the tag "${activeTag}".`;
+        if (activeTags.size > 0) message = 'No bots match all selected tags.';
         else if (searchTerm) message = 'No bots match your search criteria.';
-        
         grid.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; opacity: 0.8;">${message}</p>`;
         return;
     }
 
-    // 3. Create the "Sentinel" (The invisible trigger at the bottom)
+    // Create Sentinel
     const sentinel = document.createElement('div');
     sentinel.id = 'sentinel';
     grid.appendChild(sentinel);
 
-    // 4. Initialize Observer if not exists
+    // Setup Observer
     if (!observer) {
         observer = new IntersectionObserver((entries) => {
             if (entries[0].isIntersecting) {
                 loadMoreBots();
             }
-        }, { rootMargin: '200px' }); // Load 200px before user hits bottom
+        }, { rootMargin: '200px' });
     }
 
-    // 5. Start observing the sentinel
     observer.observe(sentinel);
-
-    // 6. Load the first batch immediately
-    loadMoreBots();
+    loadMoreBots(); // Load first batch immediately
 }
 
-// --- NEW FUNCTION TO APPEND BATCHES ---
 function loadMoreBots() {
-    // If we've displayed everything, stop.
     if (displayedCount >= currentBatch.length) return;
 
     const grid = document.getElementById('bots-grid');
     const sentinel = document.getElementById('sentinel');
     
-    // Get the next slice of bots
+    // Slice next batch
     const nextBatch = currentBatch.slice(displayedCount, displayedCount + BATCH_SIZE);
     
-    // Create HTML for this batch
     const batchHTML = nextBatch.map(bot => {
         const tags = Array.isArray(bot.tags) ? bot.tags : [];
         const botImage = bot.avatar || 'https://placehold.co/300x200/6c5ce7/white?text=No+Image';
@@ -388,26 +319,72 @@ function loadMoreBots() {
                 </div>
             </div>
         </div>
-    `;
-    }).join('');
+    `}).join('');
 
-    // Insert new cards BEFORE the sentinel
+    // Insert new items before sentinel
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = batchHTML;
-    
-    // Move children from tempDiv to grid before the sentinel
     while (tempDiv.firstChild) {
         grid.insertBefore(tempDiv.firstChild, sentinel);
     }
 
     displayedCount += nextBatch.length;
 
-    // If we reached the end, unobserve
     if (displayedCount >= currentBatch.length) {
         observer.unobserve(sentinel);
     }
 }
 
+// --- CAROUSEL LOGIC ---
+function populateHeroCarousel() {
+    const mostLiked = sortBots(allBots, 'likes').slice(0, 10);
+    const track = document.getElementById('hero-carousel-container');
+    if (!track) return;
+
+    track.innerHTML = mostLiked.map(bot => `
+        <a href="https://www.joyland.ai/botProfile/${bot.botId}" class="hero-card" target="_blank" rel="noopener noreferrer">
+            <img src="${bot.avatar || 'https://placehold.co/450x300/a855f7/white?text=No+Image'}" alt="${bot.characterName}" class="hero-card-image">
+            <div class="hero-card-fade"></div>
+            <div class="hero-card-content">
+                <h3>${bot.characterName || 'Unknown Bot'}</h3>
+                <p>${bot.introduce || 'No introduction available.'}</p>
+            </div>
+        </a>
+    `).join('');
+    
+    initCarouselControls();
+}
+
+function initCarouselControls() {
+    const container = document.getElementById('hero-carousel-container');
+    const prevBtn = document.getElementById('carousel-prev');
+    const nextBtn = document.getElementById('carousel-next');
+
+    if (!container || !prevBtn || !nextBtn) return;
+    const scrollAmount = () => container.clientWidth * 0.8;
+
+    prevBtn.addEventListener('click', () => container.scrollBy({ left: -scrollAmount(), behavior: 'smooth' }));
+    nextBtn.addEventListener('click', () => container.scrollBy({ left: scrollAmount(), behavior: 'smooth' }));
+
+    const startAutoScroll = () => {
+        stopAutoScroll();
+        autoScrollInterval = setInterval(() => {
+            if (!container) return;
+            if (container.scrollLeft + container.clientWidth + 50 >= container.scrollWidth) {
+                container.scrollTo({ left: 0, behavior: 'smooth' });
+            } else {
+                container.scrollBy({ left: scrollAmount(), behavior: 'smooth' });
+            }
+        }, 3000);
+    };
+    const stopAutoScroll = () => clearInterval(autoScrollInterval);
+
+    container.addEventListener('mouseenter', stopAutoScroll);
+    container.addEventListener('mouseleave', startAutoScroll);
+    startAutoScroll();
+}
+
+// --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
     initMatrix();
     const searchInput = document.getElementById('search');
@@ -415,13 +392,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let searchTimeout;
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
-            if (!activeTag) {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    searchTerm = e.target.value.toLowerCase();
-                    updateDisplay();
-                }, 300);
-            }
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchTerm = e.target.value.toLowerCase();
+                updateDisplay();
+            }, 300);
         });
     }
 
@@ -431,13 +406,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const userFilter = document.getElementById('user-filter');
     if (userFilter) userFilter.addEventListener('change', updateDisplay);
     
-    // Event delegation for tag clicks
+    // Tag Click Event Delegation
     const botsGrid = document.getElementById('bots-grid');
     if (botsGrid) {
         botsGrid.addEventListener('click', (e) => {
-            if (e.target.classList.contents.contains('tag')) {
+            if (e.target.classList.contains('tag')) {
                 const tag = e.target.textContent;
-                setTagFilter(tag);
+                toggleTag(tag);
             }
         });
     }
