@@ -424,3 +424,45 @@ h2 { margin-bottom: 1rem; color: var(--text); }
     height: 20px;
     grid-column: 1 / -1; /* Span full width of grid */
 }
+
+/* --- ACTIVE TAGS AREA --- */
+.active-tags-area {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    min-height: 0; /* Collapses if empty */
+}
+
+/* Style for a tag that has been selected */
+.active-tag-chip {
+    background: var(--text); /* Dark background for contrast */
+    color: var(--bg);
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.active-tag-chip:hover {
+    background: var(--accent);
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* The 'X' icon inside the chip */
+.active-tag-chip span {
+    font-size: 1.1em;
+    line-height: 0.8;
+}
+
+[data-theme="dark"] .active-tag-chip {
+    background: #e0e0e0;
+    color: #121212;
+}
